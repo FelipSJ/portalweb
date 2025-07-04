@@ -1,38 +1,55 @@
+
 import streamlit as st
 import pandas as pd
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 
-USERNAME = "cliente"
-PASSWORD = "1234"
 session_state = st.session_state
+
+# Usuarios y contraseñas
+USERS = {
+    "cliente": {
+        "password": "1234",
+        "platforms": ["TikTok", "Meta", "YouTube"]
+    },
+    "ING_iprospect": {
+        "password": "iprospect_ing_202",
+        "platforms": ["YouTube"]
+    }
+}
 
 if "logged_in" not in session_state:
     session_state.logged_in = False
+    session_state.current_user = None
 
 if not session_state.logged_in:
     user = st.text_input("Usuario")
     pwd = st.text_input("Contraseña", type="password")
     if st.button("Login"):
-        if user == USERNAME and pwd == PASSWORD:
+        if user in USERS and pwd == USERS[user]["password"]:
             session_state.logged_in = True
+            session_state.current_user = user
         else:
             st.error("Credenciales incorrectas")
     st.stop()
 
 st.title("Portal de subida de archivos")
 
-# 1) Mostrar plataformas
-platform = st.selectbox("Selecciona una plataforma:", ["TikTok", "Meta", "YouTube"])
+# Mostrar plataformas según el usuario logueado
+platforms = USERS[session_state.current_user]["platforms"]
+if len(platforms) == 1:
+    platform = platforms[0]
+    st.write(f"Plataforma asignada: **{platform}**")
+else:
+    platform = st.selectbox("Selecciona una plataforma:", platforms)
 
-# 2) Subir archivo
-uploaded_file = st.file_uploader("Selecciona un archivo Excel", type=["xls", "xlsx"])
+# Subida de archivo CSV
+uploaded_file = st.file_uploader("Selecciona un archivo CSV", type=["csv"])
 
-# 3) Botón de validación separado
 if uploaded_file:
     if st.button("Validar"):
         try:
-            df = pd.read_excel(uploaded_file)
+            df = pd.read_csv(uploaded_file)
             required_columns = [
                 "Día", "Estado de los anuncios", "URL final", "URL de baliza", "Título",
                 "Título largo 1", "Título largo 2", "Título largo 3", "Título largo 4", "Título largo 5",
@@ -69,8 +86,9 @@ if uploaded_file:
                 })
                 file_drive.SetContentFile(temp_filename)
                 file_drive.Upload()
-                st.success(f"Archivo subido a Google Drive en la carpeta para {platform}.")
+                st.success(f"Archivo subido a Google Drive en la carpeta asignada para {platform}.")
             else:
                 st.error("No validado ❌. Las columnas no coinciden exactamente con las requeridas.")
         except Exception as e:
-            st.error(f"No validado ❌. Error al leer el archivo Excel: {e}")
+            st.error(f"No validado ❌. Error al leer el archivo CSV: {e}")
+
