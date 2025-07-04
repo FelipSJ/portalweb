@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import re
+import datetime
 from pydrive.auth import GoogleAuth
 from pydrive.drive import GoogleDrive
 
@@ -33,12 +35,10 @@ if not session_state.logged_in:
 
 st.title("Portal de subida de archivos")
 
-# Usa .get() para evitar errores si current_user no está inicializado
 current_user = session_state.get("current_user")
 if current_user is None:
-    st.stop()  # Seguridad: para la app si no hay usuario logueado
+    st.stop()
 
-# Mostrar plataformas según el usuario logueado
 platforms = USERS[current_user]["platforms"]
 if len(platforms) == 1:
     platform = platforms[0]
@@ -46,12 +46,12 @@ if len(platforms) == 1:
 else:
     platform = st.selectbox("Selecciona una plataforma:", platforms)
 
-# Subida de archivo CSV
 uploaded_file = st.file_uploader("Selecciona un archivo CSV", type=["csv"])
 
 if uploaded_file:
     if st.button("Validar"):
         try:
+            # Validación de columnas
             df = pd.read_csv(uploaded_file)
             required_columns = [
                 "Día", "Estado de los anuncios", "URL final", "URL de baliza", "Título",
@@ -70,11 +70,47 @@ if uploaded_file:
             ]
             uploaded_columns = df.columns.tolist()
             
-            if uploaded_columns == required_columns:
-                st.success("El archivo se ha subido correctamente ✅")
+            # Validar columnas primero
+            if uploaded_columns != required_columns:
+                st.error("No validado ❌. Las columnas no coinciden exactamente con las requeridas.")
+                st.stop()
+            
+            # Validar nombre de archivo para ING_iprospect en YouTube
+            if current_user == "ING_iprospect" and platform == "YouTube":
+                filename = uploaded_file.name
+                # Obtener mes y año actual
+                now = datetime.datetime.now()
+                current_month = f"{now.month:02d}"
+                current_year = f"{now.year%100:02d}"  # dos cifras
+                months_es = ["ENERO","FEBRERO","MARZO","ABRIL","MAYO","JUNIO",
+                             "JULIO","AGOSTO","SEPTIEMBRE","OCTUBRE","NOVIEMBRE","DICIEMBRE"]
+                current_month_name = months_es[now.month-1].upper()
+                expected_pattern = f"{current_month}_ING_YT_FCC_PROYECTO_{current_month_name}{current_year}\\.csv"
                 
-                # Subir a Google Drive
+                if not re.fullmatch(expected_pattern, filename):
+                    st.error(f"No validado ❌. El archivo debe llamarse exactamente como: {expected_pattern}")
+                    st.stop()
+                
+                # Subir a la carpeta específica de ING YouTube
                 gauth = GoogleAuth()
                 gauth.LocalWebserverAuth()
                 drive = GoogleDrive(gauth)
 
+                temp_filename = uploaded_file.name
+                with open(temp_filename, "wb") as f:
+                    f.write(uploaded_file.read())
+
+                folder_id = "1UU1yCA1DdeMU_-w2kDF18sEI41JRlfxt"  # carpeta ING YouTube
+                file_drive = drive.CreateFile({
+                    "title": uploaded_file.name,
+                    "parents": [{"id": folder_id}]
+                })
+                file_drive.SetContentFile(temp_filename)
+                file_drive.Upload()
+                st.success("El archivo se ha subido correctamente ✅")
+                st.success("Archivo subido a Google Drive en la carpeta asignada para YouTube.")
+
+            else:
+                st.error("Validación específica solo implementada para ING YouTube.")
+        except Exception as e:
+            st.error(f"No validado ❌. Error al procesar el archivo: {e}")
