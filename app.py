@@ -48,12 +48,12 @@ else:
     platform = st.selectbox("Selecciona una plataforma:", platforms)
 
 # Subida de archivo CSV
-uploaded_file = st.file_uploader("Selecciona un archivo CSV", type=["csv"])
+uploaded_file = st.file_uploader("Selecciona un archivo Excel", type=["xls","xlsx"])
 
 if uploaded_file:
     if st.button("Validar"):
         try:
-            df = pd.read_csv(uploaded_file)
+            df = pd.read_excel(uploaded_file)
             required_columns = [
                 "Día", "Estado de los anuncios", "URL final", "URL de baliza", "Título",
                 "Título largo 1", "Título largo 2", "Título largo 3", "Título largo 4", "Título largo 5",
