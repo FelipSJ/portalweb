@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 from pydrive.auth import GoogleAuth
@@ -20,7 +19,6 @@ USERS = {
 
 if "logged_in" not in session_state:
     session_state.logged_in = False
-    session_state.current_user = None
 
 if not session_state.logged_in:
     user = st.text_input("Usuario")
@@ -35,8 +33,13 @@ if not session_state.logged_in:
 
 st.title("Portal de subida de archivos")
 
+# Usa .get() para evitar errores si current_user no está inicializado
+current_user = session_state.get("current_user")
+if current_user is None:
+    st.stop()  # Seguridad: para la app si no hay usuario logueado
+
 # Mostrar plataformas según el usuario logueado
-platforms = USERS[session_state.current_user]["platforms"]
+platforms = USERS[current_user]["platforms"]
 if len(platforms) == 1:
     platform = platforms[0]
     st.write(f"Plataforma asignada: **{platform}**")
@@ -74,21 +77,4 @@ if uploaded_file:
                 gauth = GoogleAuth()
                 gauth.LocalWebserverAuth()
                 drive = GoogleDrive(gauth)
-
-                temp_filename = uploaded_file.name
-                with open(temp_filename, "wb") as f:
-                    f.write(uploaded_file.read())
-
-                folder_id = "TU_FOLDER_ID"
-                file_drive = drive.CreateFile({
-                    "title": f"{platform}_{uploaded_file.name}",
-                    "parents": [{"id": folder_id}]
-                })
-                file_drive.SetContentFile(temp_filename)
-                file_drive.Upload()
-                st.success(f"Archivo subido a Google Drive en la carpeta asignada para {platform}.")
-            else:
-                st.error("No validado ❌. Las columnas no coinciden exactamente con las requeridas.")
-        except Exception as e:
-            st.error(f"No validado ❌. Error al leer el archivo CSV: {e}")
 
